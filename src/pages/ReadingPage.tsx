@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ChevronLeft, ChevronRight, Search, Download,
-  ZoomIn, ZoomOut, X, Info, Settings, ArrowLeft, Check, Share2,
+  ZoomIn, ZoomOut, X, Info, ArrowLeft, Check, Share2,
   FileText, BookOpen, Tag, Clock, Calendar,
 } from 'lucide-react';
 import gsap from 'gsap';
@@ -412,88 +412,26 @@ function InfoSidebar({
             <Download size={14} />
             Download
           </a>
-          <button className="pill-button pill-button-outline w-full">
+          <button
+            className="pill-button pill-button-outline w-full"
+            onClick={() => {
+              const url = `${window.location.origin}/read/${post.slug}`;
+              if (typeof navigator.share === 'function') {
+                navigator.share({
+                  title: post.title,
+                  url,
+                }).catch(() => {});
+              } else {
+                navigator.clipboard.writeText(url).catch(() => {});
+              }
+            }}
+          >
             <Share2 size={14} />
-            Share
+            {typeof navigator.share === 'function' ? 'Share' : 'Copy Link'}
           </button>
         </div>
       </div>
     </>
-  );
-}
-
-// Settings Popover
-function SettingsPopover({
-  isOpen,
-  onClose,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  anchorRef: React.RefObject<HTMLElement | null>;
-}) {
-  const popoverRef = useRef<HTMLDivElement>(null);
-  const [spread, setSpread] = useState<'single' | 'double'>('single');
-
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClick);
-      return () => document.removeEventListener('mousedown', handleClick);
-    }
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div
-      ref={popoverRef}
-      className="absolute right-4 z-[560] overflow-hidden"
-      style={{
-        top: 64,
-        width: 280,
-        backgroundColor: 'var(--chalk)',
-        backdropFilter: 'blur(16px)',
-        border: '1px solid rgba(214, 207, 197, 0.3)',
-        borderRadius: 12,
-        boxShadow: '0 8px 32px rgba(26, 23, 20, 0.12)',
-      }}
-    >
-      {/* Spread mode */}
-      <div className="p-4" style={{ borderBottom: '1px solid var(--stone)' }}>
-        <p className="text-xsmall mb-3" style={{ color: 'var(--indigo)' }}>View</p>
-        <div className="flex items-center justify-between">
-          <span className="text-small" style={{ color: 'var(--ink)' }}>Two-page spread</span>
-          <button
-            onClick={() => setSpread(spread === 'single' ? 'double' : 'single')}
-            className="relative w-10 h-5 rounded-full transition-colors duration-200"
-            style={{ backgroundColor: spread === 'double' ? 'var(--copper)' : 'var(--stone)' }}
-          >
-            <div
-              className="absolute top-0.5 w-4 h-4 rounded-full transition-all duration-200"
-              style={{
-                backgroundColor: 'var(--chalk)',
-                left: spread === 'double' ? 22 : 2,
-              }}
-            />
-          </button>
-        </div>
-      </div>
-
-      {/* Scroll direction */}
-      <div className="p-4">
-        <p className="text-xsmall mb-3" style={{ color: 'var(--indigo)' }}>Scroll</p>
-        <div className="flex items-center justify-between">
-          <span className="text-small" style={{ color: 'var(--ink)' }}>Horizontal</span>
-          <div className="relative w-10 h-5 rounded-full" style={{ backgroundColor: 'var(--stone)' }}>
-            <div className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full" style={{ backgroundColor: 'var(--chalk)' }} />
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -513,7 +451,6 @@ export default function ReadingPage() {
   const [zoom, setZoom] = useState<'fit-width' | 'fit-page' | number>('fit-width');
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
   const [infoSidebarOpen, setInfoSidebarOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [headerVisible, setHeaderVisible] = useState(true);
   const [toolbarVisible, setToolbarVisible] = useState(true);
   const [pageInput, setPageInput] = useState('1');
@@ -586,7 +523,6 @@ export default function ReadingPage() {
       if (e.key === 'Escape') {
         if (searchPanelOpen) { setSearchPanelOpen(false); return; }
         if (infoSidebarOpen) { setInfoSidebarOpen(false); return; }
-        if (settingsOpen) { setSettingsOpen(false); return; }
       }
       if (e.ctrlKey || e.metaKey) {
         if (e.key === 'f') { e.preventDefault(); setSearchPanelOpen(true); }
@@ -599,7 +535,7 @@ export default function ReadingPage() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [searchPanelOpen, infoSidebarOpen, settingsOpen, totalPages, jumpToPage]);
+  }, [searchPanelOpen, infoSidebarOpen, totalPages, jumpToPage]);
 
   // Header auto-hide
   useEffect(() => {
@@ -733,13 +669,6 @@ export default function ReadingPage() {
             >
               <Search size={14} />
             </button>
-            <button
-              onClick={() => setSettingsOpen(!settingsOpen)}
-              className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 hover:bg-[var(--ink)] hover:text-[var(--chalk)]"
-              style={{ border: '1px solid var(--stone)', color: 'var(--ink)' }}
-            >
-              <Settings size={14} />
-            </button>
             <a
               href={post.pdfUrl}
               download
@@ -748,13 +677,6 @@ export default function ReadingPage() {
             >
               <Download size={14} />
             </a>
-            {settingsOpen && (
-              <SettingsPopover
-                isOpen={settingsOpen}
-                onClose={() => setSettingsOpen(false)}
-                anchorRef={{ current: null }}
-              />
-            )}
           </div>
         </div>
       </header>
